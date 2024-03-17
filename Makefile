@@ -32,7 +32,4 @@ test:
 	python test/gemma-ig.py
 	python test/gemma-ob.py
 
-test-interact:
-	python test/llama-interact.py
-
 .PHONY: test

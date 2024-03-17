@@ -1,5 +1,5 @@
 # Transformers on GPU from Radeon in docker
-Basic configuration of the docker container [hardandheavy/transformers-rocm-docker](https://hub.docker.com/repository/docker/hardandheavy/transformers-rocm-docker/general) for working with [transformer models](https://huggingface.co) on GPU from Radeon
+Basic configuration of the docker container [hardandheavy/transformers-rocm-docker](https://hub.docker.com/repository/docker/hardandheavy/transformers-rocm-docker/general) for working with [transformer models](https://huggingface.co) on GPU from Radeon.
 
 ### Requirements
 * Linux
@@ -8,7 +8,7 @@ Basic configuration of the docker container [hardandheavy/transformers-rocm-dock
 * ROCm
 
 ### Install ROCm
-Taken from [quick-start install guide](https://rocm.docs.amd.com/projects/install-on-linux/en/latest/tutorial/quick-start.html)
+Taken from [quick-start install guide](https://rocm.docs.amd.com/projects/install-on-linux/en/latest/tutorial/quick-start.html):
 ```
 sudo apt install "linux-headers-$(uname -r)" "linux-modules-extra-$(uname -r)"
 sudo usermod -a -G render,video $LOGNAME
@@ -26,9 +26,8 @@ sudo reboot
 ```
 
 ### Testing
-Tested on AMD RadeonRX 7900 XTX
+Tested on AMD RadeonRX 7900 XTX.
 ```
 make bash
 make test
-make test-interact
 ```
