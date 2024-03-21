@@ -1,13 +1,13 @@
 build:
 	docker build \
-		-t transformers-rocm-docker:$(tag) \
+		-t transformers-rocm:$(tag) \
 		-f Dockerfile .
 
 publish:
-	docker image tag transformers-rocm-docker:$(tag) hardandheavy/transformers-rocm-docker:$(tag)
-	docker push hardandheavy/transformers-rocm-docker:$(tag)
-	docker image tag transformers-rocm-docker:$(tag) hardandheavy/transformers-rocm-docker:latest
-	docker push hardandheavy/transformers-rocm-docker:latest
+	docker image tag transformers-rocm:$(tag) hardandheavy/transformers-rocm:$(tag)
+	docker push hardandheavy/transformers-rocm:$(tag)
+	docker image tag transformers-rocm:$(tag) hardandheavy/transformers-rocm:latest
+	docker push hardandheavy/transformers-rocm:latest
 
 bash-dev:
 	docker run -it --rm \
@@ -16,7 +16,7 @@ bash-dev:
 		-v ./huggingface:/root/.cache/huggingface \
 		--device=/dev/kfd \
 		--device=/dev/dri \
-		transformers-rocm-docker:$(tag) bash
+		transformers-rocm:$(tag) bash
 
 bash:
 	docker run -it --rm \
@@ -25,7 +25,7 @@ bash:
 		-v ./huggingface:/root/.cache/huggingface \
 		--device=/dev/kfd \
 		--device=/dev/dri \
-		hardandheavy/transformers-rocm-docker:latest bash
+		hardandheavy/transformers-rocm:latest bash
 
 test:
 	python test/base.py
