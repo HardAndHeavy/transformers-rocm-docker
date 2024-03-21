@@ -2,7 +2,7 @@
 Basic configuration of the docker container [hardandheavy/transformers-rocm-docker](https://hub.docker.com/repository/docker/hardandheavy/transformers-rocm-docker/general) for working with [transformer models](https://huggingface.co) on GPU from Radeon.
 
 ### Requirements
-* Linux
+* Ubuntu
 * make
 * Docker
 * ROCm

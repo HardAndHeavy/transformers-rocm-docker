@@ -5,37 +5,26 @@ FROM ubuntu:22.04
 ARG ROCM_VERSION=6.0.2
 ARG AMDGPU_VERSION=${ROCM_VERSION}
 ARG APT_PREF='Package: *\nPin: release o=repo.radeon.com\nPin-Priority: 600'
-
-CMD ["/bin/bash"]
-
 RUN echo "$APT_PREF" > /etc/apt/preferences.d/rocm-pin-600
 
 ENV DEBIAN_FRONTEND noninteractive
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends ca-certificates curl libnuma-dev gnupg && \
-    curl -sL https://repo.radeon.com/rocm/rocm.gpg.key | apt-key add -   &&\
-    printf "deb [arch=amd64] https://repo.radeon.com/rocm/apt/$ROCM_VERSION/ jammy main" | tee /etc/apt/sources.list.d/rocm.list   && \
-    printf "deb [arch=amd64] https://repo.radeon.com/amdgpu/$AMDGPU_VERSION/ubuntu jammy main" | tee /etc/apt/sources.list.d/amdgpu.list   && \
-    apt-get update && apt-get install -y --no-install-recommends  \
-    sudo   \
-    libelf1   \
-    kmod   \
-    file   \
-    rocm-dev   \
-    rocm-libs   \
-    build-essential && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
-RUN apt-get update -y && apt-get upgrade -y && apt-get autoremove -y libprotobuf\* protobuf-compiler\* && \
-    rm -f /usr/local/bin/protoc && apt-get install -y \
-    locales \
-    unzip \
+RUN apt-get update && apt-get install -y \
+    libopenblas-dev \
+    ninja-build \
+    build-essential \
+    pkg-config \
+    curl \
     wget \
     git \
-    make && \
-    apt-get clean -y
+    make
+
+RUN curl -sL https://repo.radeon.com/rocm/rocm.gpg.key | apt-key add - && \
+    printf "deb [arch=amd64] https://repo.radeon.com/rocm/apt/$ROCM_VERSION/ jammy main" | tee /etc/apt/sources.list.d/rocm.list && \
+    printf "deb [arch=amd64] https://repo.radeon.com/amdgpu/$AMDGPU_VERSION/ubuntu jammy main" | tee /etc/apt/sources.list.d/amdgpu.list
+RUN apt-get update && apt-get install -y \
+    rocm-dev \
+    rocm-libs
 
 # Install Conda
 ENV PATH /opt/miniconda/bin:${PATH}
