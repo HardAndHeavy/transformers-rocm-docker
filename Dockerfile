@@ -38,7 +38,8 @@ RUN conda install python=${PYTHON_VERSION} pip
 
 # https://rocm.docs.amd.com/projects/radeon/en/latest/docs/install/install-pytorch.html
 RUN wget https://repo.radeon.com/rocm/manylinux/rocm-rel-6.0/torch-2.1.1%2Brocm6.0-cp311-cp311-linux_x86_64.whl
-RUN pip3 install --force-reinstall torch-2.1.1+rocm6.0-cp311-cp311-linux_x86_64.whl
+RUN wget https://repo.radeon.com/rocm/manylinux/rocm-rel-6.0/torchvision-0.16.1%2Brocm6.0-cp311-cp311-linux_x86_64.whl
+RUN pip3 install --force-reinstall torch-2.1.1+rocm6.0-cp311-cp311-linux_x86_64.whl torchvision-0.16.1+rocm6.0-cp311-cp311-linux_x86_64.whl
 
 RUN pip install transformers \
     peft \
