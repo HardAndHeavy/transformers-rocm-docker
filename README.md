@@ -1,4 +1,4 @@
-# Transformers on GPU from Radeon in docker
+# Transformers on GPU AMD Radeon in Docker
 Basic configuration of the docker container [hardandheavy/transformers-rocm](https://hub.docker.com/repository/docker/hardandheavy/transformers-rocm/general) for working with [transformer models](https://huggingface.co) on GPU from Radeon.
 
 ### Requirements
@@ -26,7 +26,7 @@ sudo reboot
 ```
 
 ### Testing
-Tested on AMD RadeonRX 7900 XTX.
+Tested on AMD Radeon RX 7900 XTX.
 ```
 make bash
 make test
