@@ -31,5 +31,6 @@ test:
 	python test/base.py
 	python test/gemma-ig.py
 	python test/gemma-ob.py
+	python test/llama3-ig.py
 
 .PHONY: test
