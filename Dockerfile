@@ -2,7 +2,7 @@
 # https://github.com/microsoft/onnxruntime/blob/main/tools/ci_build/github/pai/rocm-ci-pipeline-env.Dockerfile
 FROM ubuntu:22.04
 
-ARG ROCM_VERSION=6.0.2
+ARG ROCM_VERSION=6.1
 ARG AMDGPU_VERSION=${ROCM_VERSION}
 ARG APT_PREF='Package: *\nPin: release o=repo.radeon.com\nPin-Priority: 600'
 RUN echo "$APT_PREF" > /etc/apt/preferences.d/rocm-pin-600
@@ -39,9 +39,13 @@ ENV PYTHON_VERSION=3.11
 RUN conda install python=${PYTHON_VERSION} pip
 
 # https://rocm.docs.amd.com/projects/radeon/en/latest/docs/install/install-pytorch.html
-RUN wget https://repo.radeon.com/rocm/manylinux/rocm-rel-6.0/torch-2.1.1%2Brocm6.0-cp311-cp311-linux_x86_64.whl
-RUN wget https://repo.radeon.com/rocm/manylinux/rocm-rel-6.0/torchvision-0.16.1%2Brocm6.0-cp311-cp311-linux_x86_64.whl
-RUN pip install --force-reinstall torch-2.1.1+rocm6.0-cp311-cp311-linux_x86_64.whl torchvision-0.16.1+rocm6.0-cp311-cp311-linux_x86_64.whl
+RUN wget https://repo.radeon.com/rocm/manylinux/rocm-rel-6.1/pytorch_triton_rocm-2.1.0%2Brocm6.1.4d510c3a44-cp311-cp311-linux_x86_64.whl
+RUN wget https://repo.radeon.com/rocm/manylinux/rocm-rel-6.1/torch-2.1.2%2Brocm6.1-cp311-cp311-linux_x86_64.whl
+RUN wget https://repo.radeon.com/rocm/manylinux/rocm-rel-6.1/torchvision-0.16.1%2Brocm6.1-cp311-cp311-linux_x86_64.whl
+RUN pip install --force-reinstall \
+    pytorch_triton_rocm-2.1.0+rocm6.1.4d510c3a44-cp311-cp311-linux_x86_64.whl \
+    torch-2.1.2+rocm6.1-cp311-cp311-linux_x86_64.whl \
+    torchvision-0.16.1+rocm6.1-cp311-cp311-linux_x86_64.whl
 
 RUN pip install transformers \
     peft \
