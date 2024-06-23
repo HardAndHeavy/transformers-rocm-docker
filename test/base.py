@@ -1,5 +1,5 @@
 from peft import PeftModel, PeftConfig
-from transformers import AutoModelForCausalLM, AutoTokenizer, GenerationConfig
+from transformers import BitsAndBytesConfig, AutoModelForCausalLM, AutoTokenizer, GenerationConfig
 import torch
 
 MODEL_NAME = "IlyaGusev/saiga2_13b_lora"
@@ -61,20 +61,21 @@ def generate(model, tokenizer, prompt, generation_config):
     return output.strip()
 
 config = PeftConfig.from_pretrained(MODEL_NAME)
+bnb_config = BitsAndBytesConfig(
+    load_in_8bit=True,  
+)
 model = AutoModelForCausalLM.from_pretrained(
     "TheBloke/Llama-2-13B-fp16",
-    load_in_8bit=True,
-    torch_dtype=torch.float16,
+    quantization_config=bnb_config,
     device_map="auto",
 )
 model = PeftModel.from_pretrained(
     model,
     MODEL_NAME,
-    torch_dtype=torch.float16
 )
 model.eval()
 
-tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, use_fast=False)
+tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, use_fast=False, legacy=False)
 generation_config = GenerationConfig.from_pretrained(MODEL_NAME)
 print(generation_config)
 
