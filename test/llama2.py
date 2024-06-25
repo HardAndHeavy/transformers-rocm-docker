@@ -1,6 +1,5 @@
 from peft import PeftModel, PeftConfig
 from transformers import BitsAndBytesConfig, AutoModelForCausalLM, AutoTokenizer, GenerationConfig
-import torch
 
 MODEL_NAME = "IlyaGusev/saiga2_13b_lora"
 DEFAULT_MESSAGE_TEMPLATE = "<s>{role}\n{content}</s>\n"
