@@ -28,7 +28,6 @@ bash:
 		hardandheavy/transformers-rocm:latest bash
 
 test:
-	python test/llama2.py
 	python test/llama3.py
 
 .PHONY: test

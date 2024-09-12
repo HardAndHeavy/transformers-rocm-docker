@@ -12,17 +12,15 @@ Taken from [quick-start install guide](https://rocm.docs.amd.com/projects/instal
 ```
 sudo apt install "linux-headers-$(uname -r)" "linux-modules-extra-$(uname -r)"
 sudo usermod -a -G render,video $LOGNAME
-wget https://repo.radeon.com/amdgpu-install/6.1.2/ubuntu/jammy/amdgpu-install_6.1.60102-1_all.deb
-sudo apt install ./amdgpu-install_6.1.60102-1_all.deb
+wget https://repo.radeon.com/amdgpu-install/6.2/ubuntu/noble/amdgpu-install_6.2.60200-1_all.deb
+sudo apt install ./amdgpu-install_6.2.60200-1_all.deb
 
 # If an error occurs, you must run:
 sudo chown -Rv _apt:root /var/cache/apt/archives/partial/
 sudo chmod -Rv 700 /var/cache/apt/archives/partial/
 
 sudo apt update
-sudo apt install amdgpu-dkms
-sudo apt install rocm-hip-libraries
-sudo reboot
+sudo apt install amdgpu-dkms rocm
 ```
 
 ### Testing

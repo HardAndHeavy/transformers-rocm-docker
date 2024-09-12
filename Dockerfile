@@ -1,9 +1,8 @@
 # https://github.com/ROCm/ROCm-docker/blob/master/dev/Dockerfile-ubuntu-22.04-complete
 # https://github.com/microsoft/onnxruntime/blob/main/tools/ci_build/github/pai/rocm-ci-pipeline-env.Dockerfile
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
-ARG ROCM_VERSION=6.1.3
-ARG AMDGPU_VERSION=${ROCM_VERSION}
+ARG ROCM_VERSION=6.2
 ARG APT_PREF='Package: *\nPin: release o=repo.radeon.com\nPin-Priority: 600'
 RUN echo "$APT_PREF" > /etc/apt/preferences.d/rocm-pin-600
 
@@ -20,8 +19,8 @@ RUN apt-get update && apt-get install -y \
     make
 
 RUN curl -sL https://repo.radeon.com/rocm/rocm.gpg.key | apt-key add - && \
-    printf "deb [arch=amd64] https://repo.radeon.com/rocm/apt/$ROCM_VERSION/ jammy main" | tee /etc/apt/sources.list.d/rocm.list && \
-    printf "deb [arch=amd64] https://repo.radeon.com/amdgpu/$AMDGPU_VERSION/ubuntu jammy main" | tee /etc/apt/sources.list.d/amdgpu.list
+    printf "deb [arch=amd64] https://repo.radeon.com/rocm/apt/${ROCM_VERSION}/ noble main" | tee /etc/apt/sources.list.d/rocm.list && \
+    printf "deb [arch=amd64] https://repo.radeon.com/amdgpu/${ROCM_VERSION}/ubuntu noble main" | tee /etc/apt/sources.list.d/amdgpu.list
 RUN apt-get update && apt-get install -y \
     rocm-dev \
     rocm-libs
@@ -40,21 +39,10 @@ RUN conda install python=${PYTHON_VERSION} pip
 
 # https://github.com/comfyanonymous/ComfyUI/issues/3698
 ENV TORCH_BLAS_PREFER_HIPBLASLT=0
-RUN pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/rocm6.1
+RUN pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/rocm${ROCM_VERSION}
 
 RUN pip install transformers \
     peft \
     sentencepiece \
     scipy \
-    protobuf --extra-index-url https://download.pytorch.org/whl/nightly/rocm6.1
-
-# https://github.com/agrocylo/bitsandbytes-rocm
-# or
-# https://github.com/arlo-phoenix/bitsandbytes-rocm-5.6
-ENV PYTORCH_ROCM_ARCH=gfx900,gfx906,gfx908,gfx90a,gfx1030,gfx1100,gfx1101,gfx940,gfx941,gfx942
-ENV BITSANDBYTES_VERSION=62353b0200b8557026c176e74ac48b84b953a854
-RUN git clone https://github.com/arlo-phoenix/bitsandbytes-rocm-5.6 /bitsandbytes && \
-    cd /bitsandbytes && \
-    git checkout ${BITSANDBYTES_VERSION} && \
-    make hip ROCM_TARGET=${PYTORCH_ROCM_ARCH} ROCM_HOME=/opt/rocm/ && \
-    pip install . --extra-index-url https://download.pytorch.org/whl/nightly/rocm6.1
+    protobuf --extra-index-url https://download.pytorch.org/whl/nightly/rocm${ROCM_VERSION}
