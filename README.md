@@ -17,6 +17,8 @@ sudo apt install ./amdgpu-install_6.2.60201-1_all.deb
 sudo apt update
 sudo apt install amdgpu-dkms rocm
 sudo reboot
+sudo apt install rocminfo
+export PATH=$PATH:/opt/rocm/bin
 ```
 
 ### Testing
