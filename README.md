@@ -18,7 +18,7 @@ sudo apt update
 sudo apt install amdgpu-dkms rocm
 sudo reboot
 sudo apt install rocminfo
-export PATH=$PATH:/opt/rocm/bin
+# change the PATH in the /etc/environment file. Add :/opt/rocm/bin
 ```
 
 ### Testing
