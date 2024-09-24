@@ -37,12 +37,10 @@ RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86
 ENV PYTHON_VERSION=3.11
 RUN conda install python=${PYTHON_VERSION} pip
 
-# https://github.com/comfyanonymous/ComfyUI/issues/3698
-ENV TORCH_BLAS_PREFER_HIPBLASLT=0
-RUN pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/rocm${ROCM_VERSION}
-
+ENV INDEX_URL=https://download.pytorch.org/whl/rocm6.1
+RUN pip install torch torchvision torchaudio --index-url ${INDEX_URL}
 RUN pip install transformers \
     peft \
     sentencepiece \
     scipy \
-    protobuf --extra-index-url https://download.pytorch.org/whl/nightly/rocm${ROCM_VERSION}
+    protobuf --extra-index-url ${INDEX_URL}
