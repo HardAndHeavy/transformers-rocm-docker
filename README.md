@@ -17,8 +17,19 @@ sudo apt install ./amdgpu-install_6.2.60201-1_all.deb
 sudo apt update
 sudo apt install amdgpu-dkms rocm
 sudo reboot
+```
+
+Install rocminfo:
+```
 sudo apt install rocminfo
-# change the PATH in the /etc/environment file. Add :/opt/rocm/bin
+# Also change the PATH in the /etc/environment file. Add :/opt/rocm/bin
+```
+
+In case of an error `gpu_process_host` took the advice from [SamuelMarks](https://github.com/signalapp/Signal-Desktop/issues/6855#issuecomment-2118305464):
+```
+# Deleting everything that contains "va-driver"
+sudo apt remove mesa-va-drivers
+sudo apt remove mesa-amdgpu-va-drivers:amd64
 ```
 
 ### Testing

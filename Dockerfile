@@ -2,7 +2,7 @@
 # https://github.com/microsoft/onnxruntime/blob/main/tools/ci_build/github/pai/rocm-ci-pipeline-env.Dockerfile
 FROM ubuntu:24.04
 
-ARG ROCM_VERSION=6.2
+ARG ROCM_VERSION=6.2.4
 ARG APT_PREF='Package: *\nPin: release o=repo.radeon.com\nPin-Priority: 600'
 RUN echo "$APT_PREF" > /etc/apt/preferences.d/rocm-pin-600
 
@@ -37,7 +37,7 @@ RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86
 ENV PYTHON_VERSION=3.11
 RUN conda install python=${PYTHON_VERSION} pip
 
-ENV INDEX_URL=https://download.pytorch.org/whl/rocm6.1
+ENV INDEX_URL=https://download.pytorch.org/whl/rocm6.2
 RUN pip install torch torchvision torchaudio --index-url ${INDEX_URL}
 RUN pip install transformers \
     peft \
