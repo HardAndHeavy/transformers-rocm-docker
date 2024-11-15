@@ -22,7 +22,7 @@ sudo reboot
 Install rocminfo:
 ```bash
 sudo apt install rocminfo
-# Also change the PATH in the /etc/environment file. Add :/opt/rocm/bin
+# It is necessary to change the PATH in the /etc/environment file. Add ":/opt/rocm/bin"
 ```
 
 In case of an error `gpu_process_host` took the advice from [SamuelMarks](https://github.com/signalapp/Signal-Desktop/issues/6855#issuecomment-2118305464):
