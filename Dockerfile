@@ -2,7 +2,7 @@
 # https://github.com/microsoft/onnxruntime/blob/main/tools/ci_build/github/pai/rocm-ci-pipeline-env.Dockerfile
 FROM ubuntu:24.04
 
-ARG ROCM_VERSION=6.3.1
+ARG ROCM_VERSION=6.3.2
 ARG APT_PREF='Package: *\nPin: release o=repo.radeon.com\nPin-Priority: 600'
 RUN echo "$APT_PREF" > /etc/apt/preferences.d/rocm-pin-600
 
