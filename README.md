@@ -1,5 +1,5 @@
 # Transformers on GPU AMD Radeon in Docker
-Basic configuration of the docker container [hardandheavy/transformers-rocm](https://hub.docker.com/repository/docker/hardandheavy/transformers-rocm/general) for working with [transformer models](https://huggingface.co) on GPU from Radeon.
+Basic configuration of the docker container [hardandheavy/transformers-rocm](https://hub.docker.com/r/hardandheavy/transformers-rocm) for working with [transformer models](https://huggingface.co) on GPU from Radeon.
 
 ### Requirements
 * Ubuntu
