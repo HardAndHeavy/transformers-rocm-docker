@@ -2,7 +2,7 @@
 # https://github.com/microsoft/onnxruntime/blob/main/tools/ci_build/github/pai/rocm-ci-pipeline-env.Dockerfile
 FROM ubuntu:24.04
 
-ARG ROCM_VERSION=6.4.1
+ARG ROCM_VERSION=7.0
 ARG APT_PREF='Package: *\nPin: release o=repo.radeon.com\nPin-Priority: 600'
 RUN echo "$APT_PREF" > /etc/apt/preferences.d/rocm-pin-600
 
@@ -29,15 +29,18 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 # Install Conda
 ENV PATH=/opt/miniconda/bin:${PATH}
-RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh --no-check-certificate && /bin/bash ~/miniconda.sh -b -p /opt/miniconda && \
+RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh --no-check-certificate && \
+    /bin/bash ~/miniconda.sh -b -p /opt/miniconda && \
     conda init bash && \
     conda config --set auto_activate_base false && \
+    conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main && \
+    conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r && \
     conda update --all && \
     rm ~/miniconda.sh && conda clean -ya
 ENV PYTHON_VERSION=3.11
 RUN conda install python=${PYTHON_VERSION} pip
 
-ENV INDEX_URL=https://download.pytorch.org/whl/rocm6.3
+ENV INDEX_URL=https://download.pytorch.org/whl/rocm6.4
 RUN pip install torch torchvision torchaudio --index-url ${INDEX_URL}
 RUN pip install transformers \
     peft \

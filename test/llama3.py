@@ -5,7 +5,7 @@ import torch
 import gc
 
 model_id = "IlyaGusev/saiga_llama3_8b"
-pipeline = transformers.pipeline("text-generation", model=model_id, model_kwargs={"torch_dtype": torch.bfloat16}, device_map="auto")
+pipeline = transformers.pipeline("text-generation", model=model_id, model_kwargs={"dtype": torch.bfloat16}, device_map="auto")
 
 messages = [
     {"role": "system", "content": "Ты — Сайга, русскоязычный автоматический ассистент. Ты разговариваешь с людьми и помогаешь им."},
