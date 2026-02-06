@@ -5,19 +5,38 @@ import torch
 import gc
 
 model_id = "IlyaGusev/saiga_llama3_8b"
-pipeline = transformers.pipeline("text-generation", model=model_id, model_kwargs={"dtype": torch.bfloat16}, device_map="auto")
+
+tokenizer = transformers.AutoTokenizer.from_pretrained(model_id)
+model = transformers.AutoModelForCausalLM.from_pretrained(
+    model_id,
+    dtype=torch.bfloat16,
+    device_map="auto"
+)
 
 messages = [
     {"role": "system", "content": "Ты — Сайга, русскоязычный автоматический ассистент. Ты разговариваешь с людьми и помогаешь им."},
     {"role": "user", "content": "Сочини длинный рассказ, обязательно упоминая следующие объекты. Дано: Таня, мяч"}
 ]
 
-prompt = pipeline.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-terminators = [pipeline.tokenizer.eos_token_id, pipeline.tokenizer.convert_tokens_to_ids("<|eot_id|>")]
+prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+terminators = [tokenizer.eos_token_id, tokenizer.convert_tokens_to_ids("<|eot_id|>")]
 
-outputs = pipeline(prompt, max_new_tokens=256, eos_token_id=terminators, do_sample=True, temperature=0.6, top_p=0.9)
-print(outputs[0]["generated_text"][len(prompt):])
+inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
 
-del pipeline
+with torch.no_grad():
+    outputs = model.generate(
+        **inputs,
+        max_new_tokens=256,
+        eos_token_id=terminators,
+        do_sample=True,
+        temperature=0.6,
+        top_p=0.9,
+        pad_token_id=tokenizer.eos_token_id
+    )
+
+generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+print(generated_text[len(prompt):])
+
+del model, tokenizer, inputs, outputs
 torch.cuda.empty_cache()
 gc.collect()
