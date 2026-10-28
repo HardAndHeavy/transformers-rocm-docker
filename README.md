@@ -27,3 +27,8 @@ Tested on AMD Radeon RX 7900 XTX.
 make bash
 make test
 ```
+
+### License
+The original code and documentation in this repository are licensed under
+the [Apache License 2.0](LICENSE).
+Third-party software and models remain subject to their respective licenses.
