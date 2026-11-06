@@ -1,0 +1,7 @@
+.git
+.gitignore
+.dockerignore
+huggingface
+**/__pycache__
+**/*.py[cod]
+.venv

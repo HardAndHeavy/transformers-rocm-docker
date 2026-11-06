@@ -1,66 +1,69 @@
-# https://github.com/ROCm/ROCm-docker/blob/master/dev/Dockerfile-ubuntu-22.04-complete
-# https://github.com/microsoft/onnxruntime/blob/main/tools/ci_build/github/pai/rocm-ci-pipeline-env.Dockerfile
-FROM ubuntu:24.04
+# ROCm runtime layout and installation sources:
+# https://github.com/ROCm/TheRock/blob/main/dockerfiles/rocm_runtime.Dockerfile
+# https://github.com/ROCm/TheRock/blob/main/RELEASES.md
+# Pin both the release tag and the manifest digest for reproducible builds.
+FROM rocm/dev-ubuntu-26.04:10.1.0-full@sha256:4f5ed1bf6532a4b9920400401b0ad0f706af356dae61e40afefbfd6c8073f0ce
 
-ARG ROCM_VERSION=7.2
-ARG AMDGPU_VERSION=7.0.3
-ARG APT_PREF='Package: *\nPin: release o=repo.radeon.com\nPin-Priority: 600'
-RUN echo "$APT_PREF" > /etc/apt/preferences.d/rocm-pin-600
+ARG ROCM_VERSION=10.1.0
+ARG ROCM_PYTHON_INDEX_URL=https://stable.repo.amd.com/rocm/whl-next/
+ARG PYTORCH_DEVICE=device-all
+ARG TORCH_VERSION=2.14.0
+ARG TORCHVISION_VERSION=0.29.0a0
+ARG TORCHAUDIO_VERSION=2.11.0.3
 
-ENV DEBIAN_FRONTEND=noninteractive
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    HF_HOME=/root/.cache/huggingface \
+    TOKENIZERS_PARALLELISM=false
 
-RUN apt-get update && apt-get install -y \
-    libopenblas-dev \
-    ninja-build \
-    build-essential \
-    pkg-config \
-    curl \
-    wget \
-    git \
-    make
+# Ubuntu 26.04 provides Python 3.14, which is supported by the ROCm 10.1
+# PyTorch 2.14 wheels. A venv avoids changing distribution-managed Python.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        git \
+        git-lfs \
+        make \
+        python3.14 \
+        python3.14-venv \
+    && rm -rf /var/lib/apt/lists/* \
+    && python3.14 -m venv /opt/venv
 
-RUN curl -sL https://repo.radeon.com/rocm/rocm.gpg.key | apt-key add - && \
-    printf "deb [arch=amd64] https://repo.radeon.com/rocm/apt/${ROCM_VERSION}/ noble main" | tee /etc/apt/sources.list.d/rocm.list && \
-    printf "deb [arch=amd64] https://repo.radeon.com/amdgpu/${AMDGPU_VERSION}/ubuntu noble main" | tee /etc/apt/sources.list.d/amdgpu.list
-RUN apt-get update && apt-get install -y \
-    rocm-dev \
-    rocm-libs
+ENV VIRTUAL_ENV=/opt/venv \
+    PATH="/opt/venv/bin:${PATH}"
 
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-# Install Conda
-ENV PATH=/opt/miniconda/bin:${PATH}
-RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh --no-check-certificate && \
-    /bin/bash ~/miniconda.sh -b -p /opt/miniconda && \
-    conda init bash && \
-    conda config --set auto_activate_base false && \
-    conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main && \
-    conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r && \
-    conda update --all && \
-    rm ~/miniconda.sh && conda clean -ya
-ENV PYTHON_VERSION=3.13
-RUN conda install python=${PYTHON_VERSION} pip
+# Keep the ROCm wheels as a matched set. The device extra installs the GPU
+# kernels and the matching Triton/ROCm Python dependencies automatically.
+# For a smaller single-GPU image use, for example:
+#   --build-arg PYTORCH_DEVICE=device-gfx1201
+RUN python -m pip install --no-cache-dir --upgrade pip setuptools wheel \
+    && python -m pip install --no-cache-dir \
+        --index-url "${ROCM_PYTHON_INDEX_URL}" \
+        "torch[${PYTORCH_DEVICE}]==${TORCH_VERSION}+rocm${ROCM_VERSION}" \
+        "torchvision[${PYTORCH_DEVICE}]==${TORCHVISION_VERSION}+rocm${ROCM_VERSION}" \
+        "torchaudio==${TORCHAUDIO_VERSION}+rocm${ROCM_VERSION}" \
+    && python -m pip install --no-cache-dir \
+        "transformers>=5.12.1" \
+        accelerate \
+        peft \
+        sentencepiece \
+        scipy \
+        protobuf
 
-ENV TORCH_ROCM_AOTRITON_ENABLE_EXPERIMENTAL=1
+# Fail during the build if a CPU-only or otherwise incompatible torch was
+# resolved. GPU access itself is checked by `make test` on the target host.
+RUN python - <<'PY'
+import torch
+import transformers
 
-ENV ROCM_VERSION_FULL=7.2.0
-ENV PYTHON_LIB_ROCM_URL=https://repo.radeon.com/rocm/manylinux/rocm-rel-${ROCM_VERSION}
-ENV TRITON_VERSION=3.5.1
-ENV TRITON_VERSION_DETAILS=gita272dfa8-cp313-cp313
-RUN pip3 install $PYTHON_LIB_ROCM_URL/triton-$TRITON_VERSION+rocm$ROCM_VERSION_FULL.$TRITON_VERSION_DETAILS-linux_x86_64.whl
-ENV TORCH_VERSION=2.9.1
-ENV TORCH_VERSION_DETAILS=lw.git7e1940d4-cp313-cp313
-RUN pip3 install $PYTHON_LIB_ROCM_URL/torch-$TORCH_VERSION+rocm$ROCM_VERSION_FULL.$TORCH_VERSION_DETAILS-linux_x86_64.whl
-ENV TORCHVISION_VERSION=0.24.0
-ENV TORCHVISION_VERSION_DETAILS=gitb919bd0c-cp313-cp313
-RUN pip3 install $PYTHON_LIB_ROCM_URL/torchvision-$TORCHVISION_VERSION+rocm$ROCM_VERSION_FULL.$TORCHVISION_VERSION_DETAILS-linux_x86_64.whl
-ENV TORCHAUDIO_VERSION=2.9.0
-ENV TORCHAUDIO_VERSION_DETAILS=gite3c6ee2b-cp313-cp313
-RUN pip3 install $PYTHON_LIB_ROCM_URL/torchaudio-$TORCHAUDIO_VERSION+rocm$ROCM_VERSION_FULL.$TORCHAUDIO_VERSION_DETAILS-linux_x86_64.whl
+assert torch.version.hip is not None, "A ROCm-enabled PyTorch wheel is required"
+assert torch.__version__.startswith("2.14.0+rocm10.1.0"), torch.__version__
+print(f"Python/PyTorch: {torch.__version__}; HIP: {torch.version.hip}")
+print(f"Transformers: {transformers.__version__}")
+PY
 
-RUN pip install \
-    transformers \
-    peft \
-    sentencepiece \
-    scipy \
-    protobuf
+WORKDIR /app
+CMD ["bash"]

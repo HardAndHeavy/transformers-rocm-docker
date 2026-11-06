@@ -1,34 +1,31 @@
 # Transformers on GPU AMD Radeon in Docker
+
 Basic configuration of the docker container [hardandheavy/transformers-rocm](https://hub.docker.com/r/hardandheavy/transformers-rocm) for working with [transformer models](https://huggingface.co) on GPU from Radeon.
 
 ### Requirements
+
 * Ubuntu
 * make
 * Docker
 * ROCm
 
 ### Install ROCm
-Taken from [quick-start install guide](https://rocm.docs.amd.com/projects/install-on-linux/en/latest/tutorial/quick-start.html):
+
 ```bash
-wget https://repo.radeon.com/amdgpu-install/7.2/ubuntu/noble/amdgpu-install_7.2.70200-1_all.deb
-sudo apt install ./amdgpu-install_7.2.70200-1_all.deb
-sudo apt update
-sudo apt install python3-setuptools python3-wheel
-sudo usermod -a -G render,video $LOGNAME # Add the current user to the render and video groups
-sudo apt install rocm
-sudo apt install "linux-headers-$(uname -r)" "linux-modules-extra-$(uname -r)"
-sudo apt install amdgpu-dkms
-sudo reboot
+sudo apt install -y rocm
 ```
 
 ### Testing
-Tested on AMD Radeon RX 7900 XTX.
+
+Tested on AMD Radeon AI PRO R9700 Creator 32 Gb.
+
 ```bash
 make bash
 make test
 ```
 
 ### License
+
 The original code and documentation in this repository are licensed under
 the [Apache License 2.0](LICENSE).
 Third-party software and models remain subject to their respective licenses.
