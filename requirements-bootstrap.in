@@ -1,0 +1,5 @@
+# Keep the installer and ROCm sdist build backend reproducible too.
+pip==26.3
+# Torch 2.13 constrains setuptools; keep this version in sync with its lock.
+setuptools==81.0.0
+wheel==0.48.0
