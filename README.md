@@ -9,11 +9,12 @@ The repository includes an interactive LFM3 chat, a real model-generation
 smoke test, and a fast ROCm runtime test that executes a BF16 workload on the
 GPU.
 
-## Version 3.0.0 software stack
+## Version 3.0.1 software stack
 
 See the [changelog](CHANGELOG.md) for the release highlights. The image version
 is independent of the ROCm and PyTorch versions.
 
+<!-- versions:begin -->
 | Component | Version |
 | --- | --- |
 | Base OS | Ubuntu 26.04 |
@@ -25,6 +26,13 @@ is independent of the ROCm and PyTorch versions.
 | Transformers | 5.22.1 |
 | Accelerate | 1.15.0 |
 | PEFT | 0.21.2 |
+<!-- versions:end -->
+
+`versions.json` is the single source of truth for these pins. The requirements
+inputs, the APT package pins, the version assertions inside the Dockerfile and
+the table above are generated from it by `tools/versions.py`, so they cannot
+drift apart. Edit `versions.json`, then run `make versions`. `make check` fails
+if a generated file is out of date.
 
 The image contains ROCm kernels for all GPU architectures provided by the
 locked `device-all` wheels. See the dependency section below if you need a
@@ -36,8 +44,9 @@ smaller, architecture-specific build.
 - A compatible AMDGPU kernel driver exposing `/dev/kfd` and `/dev/dri`.
 - Docker Engine.
 - Git and `make` for the repository commands.
-- [`uv`](https://docs.astral.sh/uv/) only when intentionally regenerating the
-  dependency locks.
+- [`uv`](https://docs.astral.sh/uv/) 0.13.7 only when intentionally regenerating
+  the dependency locks; the version is pinned in the `Makefile` and checked by
+  `make lock`.
 
 The complete ROCm user-space stack is installed inside the image; installing
 it on the host is not required. For host driver installation, follow the
@@ -54,7 +63,7 @@ docker run --rm -it \
   --device=/dev/kfd \
   --device=/dev/dri \
   -v "$PWD/huggingface:/root/.cache/huggingface" \
-  hardandheavy/transformers-rocm:3.0.0
+  hardandheavy/transformers-rocm:3.0.1
 ```
 
 `latest` points to the same release after publication, but the numbered tag is
@@ -67,19 +76,29 @@ work with it inside the container, for example `-v "$PWD:/app"`.
 git clone https://github.com/HardAndHeavy/transformers-rocm-docker.git
 cd transformers-rocm-docker
 
-make check                 # Dockerfile static checks and Python syntax
-make build tag=3.0.0       # creates transformers-rocm:3.0.0 and :latest
-make smoke-test tag=3.0.0  # imports, GPU discovery, BF16 GPU computation
-make test tag=3.0.0        # loads LFM3 onto the GPU and generates a response
+make check                 # Dockerfile lint, version sync, Python syntax
+make build                 # creates transformers-rocm:3.0.1
+make smoke-test            # imports, GPU discovery, BF16 GPU computation
+make test                  # loads LFM3 onto the GPU and generates a response
 ```
 
-`3.0.0` is the default `tag`, so the explicit `tag=3.0.0` arguments can be
-omitted. Run `make bash` for an interactive shell in the locally built image.
-The repository is mounted at `/app`, and models are cached in `./huggingface`.
+`3.0.1` is the default `tag`, so explicit `tag=` arguments can be omitted. Run
+`make bash` for an interactive shell in the locally built image. The repository
+is mounted at `/app`, and models are cached in `./huggingface`.
+
+`make build` tags only the versioned image, never `latest`, so a local build
+cannot shadow the release tag.
 
 The full test downloads about 3.5 GB on its first run. Both test targets
 require access to a real AMD GPU; `docker build` verifies the installed stack
 but cannot verify host GPU access.
+
+While working on the pinned versions:
+
+```bash
+make versions              # regenerate files from versions.json
+make lock                  # resolve both lock files, then review the diff
+```
 
 ## Interactive LFM3 chat
 
@@ -94,11 +113,16 @@ The model is loaded once, and conversation history is preserved between
 messages. Use `/clear` to reset the history, `/help` to list commands, and
 `/exit`, `/quit`, or `Ctrl+D` to leave the chat.
 
-To override the model or generation limit in either interactive or automatic
-mode:
+The chat keeps a bounded window (`MAX_CONTEXT_TOKENS`, 8192 tokens by default):
+when the history grows past it, the oldest turns are dropped rather than
+letting generation fail on an oversized prompt. The system prompt and the
+current message are always kept.
+
+To override the model, generation limit, or window in either interactive or
+automatic mode:
 
 ```bash
-MODEL_ID=LiquidAI/LFM3-1.7B MAX_NEW_TOKENS=256 make test
+MODEL_ID=LiquidAI/LFM3-1.7B MAX_NEW_TOKENS=256 MAX_CONTEXT_TOKENS=4096 make test
 # Or inside `make bash`:
 python test/lfm3.py --model-id LiquidAI/LFM3-1.7B --max-new-tokens 256
 ```
@@ -108,10 +132,34 @@ example enables it for its configured model.
 
 ## Reproducible builds and dependencies
 
-The base image is pinned by digest, direct APT packages have exact Ubuntu
-versions, and every Python package—including transitive dependencies and the
-installer/build backend—is locked with SHA256 hashes. Installation uses
-`pip --require-hashes`; normal builds never select newer dependency versions.
+The base image is pinned by digest, direct APT packages have exact versions
+resolved from a frozen Ubuntu snapshot, and every Python package—including
+transitive dependencies and the installer/build backend—is locked with SHA256
+hashes. Installation uses `pip --require-hashes`; normal builds never select
+newer dependency versions.
+
+APT packages are fetched from `snapshot.ubuntu.com` at the timestamp in the
+generated `APT_SNAPSHOT` build argument (`image.ubuntu_snapshot` in
+`versions.json`). This matters: `-updates` and `-security` publish new versions
+continuously, so exact pins against the live archive break permanently the
+moment a package is rotated. The snapshot freezes the archive, which makes
+rebuilds work regardless of when they happen. When bumping the snapshot, resolve
+the apt pins from that same timestamp and put them in `versions.json`:
+
+```bash
+TIMESTAMP=20261106T000000Z
+curl -s "https://snapshot.ubuntu.com/ubuntu/$TIMESTAMP/dists/resolute-updates/main/binary-amd64/Packages.gz" \
+  | gunzip -c | awk '/^Package: (curl|git|ca-certificates)$/{p=$2} /^Version:/{if(p){print p"="$2; p=""}}'
+```
+
+The main dependency lock must also be installed without build isolation. The
+`rocm` meta-package is distributed only as an sdist; its `pyproject.toml`
+declares `setuptools.build_meta` with `setuptools>=70.2.0`, and it introspects
+the target machine at build time. `--no-build-isolation` makes that build use
+the exact `setuptools` pinned by the bootstrap lock instead of fetching one from
+the network mid-build, and the build happens inside the fresh venv, so no other
+project's environment leaks in. Do not add other sdist-only packages without
+extending the bootstrap lock accordingly.
 
 OCI labels record the image version, Git revision, build timestamp, source,
 license, and base-image digest. `BUILD_DATE` and `GIT_REVISION` can be
@@ -129,9 +177,9 @@ provide broad GPU compatibility but produce a large download and image: the
 validated 3.0.0 image occupies **59.5 GiB uncompressed** locally, and a build
 needs additional temporary space for exporting and unpacking layers. For a
 smaller single-architecture image, replace both `device-all` extras in
-`requirements.in` with the appropriate device extra (for example,
-`device-gfx1201` for the Radeon AI PRO R9700), regenerate the locks, and test
-on that GPU.
+`versions.json` with the appropriate device extra (for example,
+`device-gfx1201` for the Radeon AI PRO R9700), run `make versions && make lock`,
+and test on that GPU.
 
 This ROCm 10.1 image uses the stable PyTorch 2.13/torchvision 0.28 wheel set.
 The torchvision 0.29.0a0 wheel published for PyTorch 2.14 is a prerelease and
@@ -170,12 +218,22 @@ readinessProbe:
 After logging in with `docker login` and passing all checks on an AMD GPU host:
 
 ```bash
-make publish tag=3.0.0
+make publish
 ```
 
-This pushes both `hardandheavy/transformers-rocm:3.0.0` and `:latest`.
+This pushes both `hardandheavy/transformers-rocm:3.0.1` and `:latest`.
 `make publish tag=latest` is deliberately rejected to avoid an unversioned
 release.
+
+Uploading a ~60 GiB image can be interrupted by a reset connection. Both pushes
+(the versioned tag and `:latest`) retry independently (`PUSH_RETRIES`, 8
+attempts by default) and every attempt reuses the layers the registry already
+accepted, so simply rerunning the target continues where the previous attempt
+stopped. Verify the result with:
+
+```bash
+docker buildx imagetools inspect hardandheavy/transformers-rocm:3.0.1
+```
 
 ## License
 

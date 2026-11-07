@@ -1,6 +1,8 @@
 """Validate the installed ROCm stack and execute a small GPU workload."""
 
+import json
 import platform
+from pathlib import Path
 
 import torch
 import torchaudio
@@ -8,23 +10,37 @@ import torchvision
 import transformers
 
 
-EXPECTED_VERSIONS = {
-    "torch": "2.13.0+rocm10.1.0",
-    "torchaudio": "2.11.0.3+rocm10.1.0",
-    "torchvision": "0.28.0+rocm10.1.0",
-    "transformers": "5.22.1",
-}
+# versions.json is the single source of truth; it is present when the repository
+# is mounted at /app, which is how `make smoke-test` and `make test` run it.
+VERSIONS_FILE = Path(__file__).resolve().parent.parent / "versions.json"
+
+
+def expected_versions() -> dict[str, str]:
+    with VERSIONS_FILE.open(encoding="utf-8") as handle:
+        pinned = json.load(handle)["requirements"]
+    # Strip the extras: the installed distribution reports the bare name.
+    return {
+        name.split("[")[0]: version
+        for name, version in pinned.items()
+        if name.split("[")[0] in {"torch", "torchaudio", "torchvision", "transformers"}
+    }
 
 
 def main() -> None:
+    if not VERSIONS_FILE.is_file():
+        raise RuntimeError(
+            f"{VERSIONS_FILE} not found. Run this test from the repository, for "
+            "example `make smoke-test`, so the pinned versions can be verified."
+        )
+
     modules = (torch, torchaudio, torchvision, transformers)
+    expected = expected_versions()
     for module in modules:
         name = module.__name__
         actual = module.__version__
-        if actual != EXPECTED_VERSIONS[name]:
+        if actual != expected[name]:
             raise RuntimeError(
-                f"Unexpected {name} version: {actual!r}; "
-                f"expected {EXPECTED_VERSIONS[name]!r}"
+                f"Unexpected {name} version: {actual!r}; expected {expected[name]!r}"
             )
 
     if torch.version.hip is None:

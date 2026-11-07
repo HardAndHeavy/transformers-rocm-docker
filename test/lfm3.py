@@ -10,18 +10,22 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 DEFAULT_MODEL_ID = os.getenv("MODEL_ID", "LiquidAI/LFM3-1.7B")
 DEFAULT_MAX_NEW_TOKENS = int(os.getenv("MAX_NEW_TOKENS", "128"))
 SYSTEM_PROMPT = "Ты — полезный русскоязычный ассистент. Отвечай кратко."
-AUTO_TEST_PROMPT = "Назови столицу Франции. Ответь одним словом."
+TEST_PROMPT = "Назови столицу Франции. Ответь одним словом."
+
+# The model accepts 262144 positions, but the chat keeps a far smaller window so
+# a long session degrades by dropping old turns instead of failing outright.
+MAX_CONTEXT_TOKENS = int(os.getenv("MAX_CONTEXT_TOKENS", "8192"))
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "Open an interactive LFM3 chat by default, or run a non-interactive "
-            "ROCm smoke test with --auto-test."
+            "ROCm smoke test with --test."
         )
     )
     parser.add_argument(
-        "--auto-test",
+        "--test",
         action="store_true",
         help="run one fixed prompt, validate the response, and exit",
     )
@@ -49,7 +53,7 @@ def initial_messages() -> list[dict[str, str]]:
 def check_rocm() -> torch.device:
     if not torch.cuda.is_available():
         raise RuntimeError(
-            "ROCm GPU is not visible to PyTorch. Run `make auto-test` on a host "
+            "ROCm GPU is not visible to PyTorch. Run `make test` on a host "
             "with /dev/kfd and /dev/dri and a compatible AMDGPU driver."
         )
 
@@ -74,6 +78,47 @@ def load_model(model_id: str, device: torch.device):
         raise RuntimeError("The model was not loaded onto the ROCm GPU")
 
     return tokenizer, model
+
+
+def trim_history(
+    messages: list[dict[str, str]],
+    tokenizer,
+    max_new_tokens: int,
+    context_limit: int = MAX_CONTEXT_TOKENS,
+) -> list[dict[str, str]]:
+    """Drop the oldest turns so the next generation fits in the window.
+
+    The system prompt is always kept and the last user message is never dropped,
+    so a single oversized prompt fails loudly instead of being silently cut.
+    """
+    budget = context_limit - max_new_tokens
+
+    def length(candidate: list[dict[str, str]]) -> int:
+        # Render first, then tokenize: apply_chat_template(tokenize=True) returns
+        # a mapping in recent Transformers versions, and len() of it is not a
+        # token count. Rendering the same way generation does keeps the estimate
+        # honest (no thinking block, generation prompt appended).
+        text = tokenizer.apply_chat_template(
+            candidate,
+            tokenize=False,
+            add_generation_prompt=True,
+            enable_thinking=False,
+        )
+        return len(tokenizer(text)["input_ids"])
+
+    trimmed = list(messages)
+    while len(trimmed) > 2 and length(trimmed) > budget:
+        # Drop a whole exchange (user + assistant) so the history always starts
+        # with a user turn; a leading assistant turn confuses the template.
+        del trimmed[1]
+        if len(trimmed) > 2 and trimmed[1]["role"] == "assistant":
+            del trimmed[1]
+    if length(trimmed) > budget:
+        raise RuntimeError(
+            f"The prompt needs more than {budget} tokens even after trimming the "
+            "history. Shorten the message or raise MAX_CONTEXT_TOKENS."
+        )
+    return trimmed
 
 
 def generate_response(
@@ -120,21 +165,24 @@ def generate_response(
     return response, generated_ids.numel()
 
 
-def run_auto_test(tokenizer, model, device: torch.device, max_new_tokens: int) -> None:
+def run_test(tokenizer, model, device: torch.device, max_new_tokens: int) -> None:
     messages = initial_messages()
-    messages.append({"role": "user", "content": AUTO_TEST_PROMPT})
+    messages.append({"role": "user", "content": TEST_PROMPT})
     response, generated_tokens = generate_response(
         messages, tokenizer, model, device, max_new_tokens
     )
 
-    print(f"\nPrompt: {AUTO_TEST_PROMPT}")
+    print(f"\nPrompt: {TEST_PROMPT}")
     print(f"Generated response: {response}")
     print(f"Generated tokens: {generated_tokens}")
-    print("ROCm Transformers auto-test passed.")
+    print("ROCm Transformers test passed.")
 
 
 def print_chat_help() -> None:
-    print("Команды: /clear — очистить историю; /exit или /quit — выйти.")
+    print(
+        "Команды: /clear — очистить историю; /help — эта справка; "
+        "/exit, /quit — выйти."
+    )
 
 
 def run_chat(
@@ -142,6 +190,7 @@ def run_chat(
 ) -> None:
     messages = initial_messages()
     print(f"\nДиалог с {model_id}. Модель загружена, история сохраняется между репликами.")
+    print(f"Окно контекста: {MAX_CONTEXT_TOKENS} токенов; старые реплики отбрасываются.")
     print_chat_help()
 
     while True:
@@ -167,9 +216,15 @@ def run_chat(
             continue
 
         messages.append({"role": "user", "content": prompt})
+        # Trimming is applied to a copy so the stored history keeps its turns;
+        # only the request that goes to the model is shortened.
         try:
             response, _ = generate_response(
-                messages, tokenizer, model, device, max_new_tokens
+                trim_history(messages, tokenizer, max_new_tokens),
+                tokenizer,
+                model,
+                device,
+                max_new_tokens,
             )
         except KeyboardInterrupt:
             # Do not leave an unanswered user message in the next prompt.
@@ -186,10 +241,10 @@ def main() -> None:
     device = check_rocm()
     tokenizer, model = load_model(args.model_id, device)
 
-    # Reproducible sampling for the auto-test and consistent chat sessions.
+    # Reproducible sampling for the test and for consistent chat sessions.
     torch.manual_seed(0)
-    if args.auto_test:
-        run_auto_test(tokenizer, model, device, args.max_new_tokens)
+    if args.test:
+        run_test(tokenizer, model, device, args.max_new_tokens)
     else:
         run_chat(args.model_id, tokenizer, model, device, args.max_new_tokens)
 

@@ -1,6 +1,7 @@
 .git
 .gitignore
 .dockerignore
+CHANGELOG.md
 huggingface
 **/__pycache__
 **/*.py[cod]

@@ -4,7 +4,7 @@
 # Pin both the release tag and the manifest digest for reproducible builds.
 FROM rocm/dev-ubuntu-26.04:10.1.0-full@sha256:4f5ed1bf6532a4b9920400401b0ad0f706af356dae61e40afefbfd6c8073f0ce
 
-ARG IMAGE_VERSION=3.0.0
+ARG IMAGE_VERSION=3.0.1
 ARG IMAGE_REVISION=unknown
 ARG IMAGE_CREATED=1970-01-01T00:00:00Z
 LABEL org.opencontainers.image.title="transformers-rocm" \
@@ -26,27 +26,47 @@ ENV DEBIAN_FRONTEND=noninteractive \
     HF_HOME=/root/.cache/huggingface \
     TOKENIZERS_PARALLELISM=false
 
-# Versions come from the Ubuntu 26.04 resolute/{updates,security} repositories.
-# Update these pins deliberately when moving the digested base image forward.
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
+# Sources and package versions are generated from versions.json by
+# tools/versions.py, so they cannot drift from the rest of the pinned stack.
+# Pointing apt at snapshot.ubuntu.com freezes the archive at one instant, which
+# keeps the exact version pins resolvable: without it every -updates/-security
+# publish silently breaks the build. Bump the snapshot and the pins together
+# and re-resolve them from that same snapshot.
+# BEGIN GENERATED: tools/versions.py apt
+ARG APT_SNAPSHOT=20261106T000000Z
+RUN set -eux; \
+    printf '%s\n' \
+        'Types: deb' \
+        "URIs: https://snapshot.ubuntu.com/ubuntu/${APT_SNAPSHOT}/" \
+        'Suites: resolute resolute-updates resolute-security' \
+        'Components: main universe restricted multiverse' \
+        'Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg' \
+        > /etc/apt/sources.list.d/ubuntu.sources; \
+    rm -f /etc/apt/sources.list.d/rocm.list; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
         ca-certificates=20260816ubuntu0.26.04.2 \
         curl=8.18.0-1ubuntu2.8 \
         git=1:2.53.0-1ubuntu1.1 \
         git-lfs=3.7.1-1 \
         make=4.4.1-3 \
         python3.14=3.14.4-1ubuntu0.2 \
-        python3.14-venv=3.14.4-1ubuntu0.2 \
-    && rm -rf /var/lib/apt/lists/* \
-    && python3.14 -m venv /opt/venv
+        python3.14-venv=3.14.4-1ubuntu0.2; \
+    rm -rf /var/lib/apt/lists/*; \
+    python3.14 -m venv /opt/venv
+# END GENERATED
 
 ENV VIRTUAL_ENV=/opt/venv \
     PATH="/opt/venv/bin:${PATH}"
 
 # The locks cover Python 3.14 on Linux x86_64 and every transitive dependency.
 # Hash checking prevents changed or substituted artifacts from being installed.
-# The second command disables build isolation so the ROCm sdist uses only the
-# pinned setuptools/wheel installed by the bootstrap lock.
+# The ROCm meta-package is distributed only as an sdist (torch's AMD wheels pull
+# it in), and its pyproject declares setuptools.build_meta with
+# setuptools>=70.2.0. Building it without isolation guarantees it runs against
+# the exact setuptools pinned by the bootstrap lock instead of a wheel fetched
+# from the network at build time, and it is reset by the venv, so no other
+# project's build environment leaks in.
 COPY requirements-bootstrap.lock requirements.lock /opt/requirements/
 RUN python -m pip install --no-cache-dir --require-hashes \
         --requirement /opt/requirements/requirements-bootstrap.lock \
@@ -56,6 +76,7 @@ RUN python -m pip install --no-cache-dir --require-hashes \
 
 # Fail during the build for incompatible wheels. GPU access itself is checked
 # by the runtime healthcheck and by `make test` on the target host.
+# BEGIN GENERATED: tools/versions.py assertions
 RUN python - <<'PY'
 import torch
 import torchaudio
@@ -64,18 +85,22 @@ import transformers
 
 expected_versions = {
     "torch": "2.13.0+rocm10.1.0",
-    "torchaudio": "2.11.0.3+rocm10.1.0",
     "torchvision": "0.28.0+rocm10.1.0",
+    "torchaudio": "2.11.0.3+rocm10.1.0",
     "transformers": "5.22.1",
 }
+
 for module in (torch, torchaudio, torchvision, transformers):
     name = module.__name__
-    assert module.__version__ == expected_versions[name], (name, module.__version__)
+    actual = module.__version__
+    assert actual == expected_versions[name], (name, actual)
+
 assert torch.version.hip is not None, "A ROCm-enabled PyTorch wheel is required"
 print(f"PyTorch: {torch.__version__}; HIP: {torch.version.hip}")
 print(f"torchvision: {torchvision.__version__}; torchaudio: {torchaudio.__version__}")
 print(f"Transformers: {transformers.__version__}")
 PY
+# END GENERATED
 
 # This is a GPU runtime image, not an HTTP service. The check validates imports
 # and GPU visibility without downloading a model or running generation.
