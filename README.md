@@ -82,9 +82,20 @@ make smoke-test            # imports, GPU discovery, BF16 GPU computation
 make test                  # loads LFM3 onto the GPU and generates a response
 ```
 
-`3.0.1` is the default `tag`, so explicit `tag=` arguments can be omitted. Run
-`make bash` for an interactive shell in the locally built image. The repository
-is mounted at `/app`, and models are cached in `./huggingface`.
+`3.0.1` is the default `tag`, so explicit `tag=` arguments can be omitted.
+
+Run targets use the published image by default, so `make bash` and `make chat`
+work on a fresh clone without building the image first. After `make build`, pass
+`LOCAL=1` to run against what you just built — that is the image a release is
+verified against:
+
+```bash
+make build
+make LOCAL=1 smoke-test
+make LOCAL=1 test
+```
+
+The repository is mounted at `/app`, and models are cached in `./huggingface`.
 
 `make build` tags only the versioned image, never `latest`, so a local build
 cannot shadow the release tag.
@@ -100,13 +111,11 @@ make versions              # regenerate files from versions.json
 make lock                  # resolve both lock files, then review the diff
 ```
 
-## Interactive LFM3 chat
-
-After building the image:
+## Shell and interactive LFM3 chat
 
 ```bash
-make bash
-python test/lfm3.py
+make bash     # plain shell in the image, repository mounted at /app
+make chat     # interactive LFM3 chat
 ```
 
 The model is loaded once, and conversation history is preserved between
@@ -123,7 +132,7 @@ automatic mode:
 
 ```bash
 MODEL_ID=LiquidAI/LFM3-1.7B MAX_NEW_TOKENS=256 MAX_CONTEXT_TOKENS=4096 make test
-# Or inside `make bash`:
+# Or inside `make chat`:
 python test/lfm3.py --model-id LiquidAI/LFM3-1.7B --max-new-tokens 256
 ```
 

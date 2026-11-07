@@ -3,6 +3,16 @@ IMAGE ?= transformers-rocm
 PUBLISH_IMAGE ?= hardandheavy/transformers-rocm
 tag ?= 3.0.1
 LOCAL_IMAGE = $(IMAGE):$(tag)
+
+# Run targets default to the published release, so a fresh clone can start a
+# shell or a chat without building the ~60 GiB image first. `make build` still
+# tags the local image only; passing LOCAL=1 to a run target switches it to that
+# build, which is what release verification needs.
+RUN_IMAGE ?= $(PUBLISH_IMAGE):$(tag)
+ifeq ($(LOCAL),1)
+RUN_IMAGE := $(LOCAL_IMAGE)
+endif
+
 BUILD_DATE ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 GIT_REVISION ?= $(shell git rev-parse HEAD)
 
@@ -84,13 +94,16 @@ lock:
 		$(UV_LOCK_FLAGS)
 
 bash:
-	$(DOCKER) run -it $(DOCKER_RUN_FLAGS) $(LOCAL_IMAGE) bash
+	$(DOCKER) run -it $(DOCKER_RUN_FLAGS) $(RUN_IMAGE) bash
+
+chat:
+	$(DOCKER) run -it $(DOCKER_RUN_FLAGS) $(RUN_IMAGE) python test/lfm3.py
 
 smoke-test:
-	$(DOCKER) run $(DOCKER_RUN_FLAGS) $(LOCAL_IMAGE) python test/rocm_smoke.py
+	$(DOCKER) run $(DOCKER_RUN_FLAGS) $(RUN_IMAGE) python test/rocm_smoke.py
 
 test:
-	$(DOCKER) run $(DOCKER_RUN_FLAGS) $(LOCAL_IMAGE) python test/lfm3.py --test
+	$(DOCKER) run $(DOCKER_RUN_FLAGS) $(RUN_IMAGE) python test/lfm3.py --test
 
 publish:
 	@if [ "$(tag)" = "latest" ]; then \
@@ -102,4 +115,4 @@ publish:
 	$(DOCKER) image tag $(LOCAL_IMAGE) $(PUBLISH_IMAGE):latest
 	$(call push_with_retries,$(PUBLISH_IMAGE):latest)
 
-.PHONY: build check versions lock bash smoke-test test publish
+.PHONY: build check versions lock bash chat smoke-test test publish

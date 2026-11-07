@@ -4,6 +4,16 @@ Image versions are independent of the ROCm, PyTorch and Transformers versions.
 Only changes that affect the published image or the repository commands are
 listed.
 
+## Unreleased
+
+- Add `make chat` for the interactive LFM3 chat, so `make bash` means the same
+  thing here and in `llama-rocm-docker`: a plain shell. The README previously
+  told users to run `python test/lfm3.py` by hand after `make bash`.
+- Run targets (`bash`, `chat`, `smoke-test`, `test`) use the published image by
+  default, so they work on a fresh clone without building the ~60 GiB image.
+  Pass `LOCAL=1` to target the image `make build` produced; `build` and
+  `publish` are unchanged and still operate on the local image only.
+
 ## 3.0.1
 
 Maintenance release; the software stack is unchanged from 3.0.0.
